@@ -18,20 +18,18 @@ case "$BACKUP_DESTINATION" in
         ;;
 esac
 
+# redis-ha-leader-0.redis-ha-leader-headless.14west-iris-plus-qa.svc
+# redis-ha-leader-0.redis-ha-leader-headless.14west-iris-plus-qa.svc.cluster.local
+# redis-ha-leader-0.redis-ha-leader-headless.14west-iris-plus-qa.svc.cluster.local
+#REDIS_HOST="${CLUSTER_NAME}-leader-0.${CLUSTER_NAME}-leader-headless.${CLUSTER_NAMESPACE}.svc.cluster.local"
+#REDIS_HOST="${CLUSTER_NAME}-leader.${CLUSTER_NAMESPACE}.svc.cluster.local"
+REDIS_HOST="${CLUSTER_NAME}-leader"
 
-REDIS_HOST="${CLUSTER_NAME}-leader-0.${CLUSTER_NAME}-leader-headless.${CLUSTER_NAMESPACE}.svc"
+#redis-cli -h redis-ha-leader -p 6379 -a aO83xMvXE3om6Qjk cluster nodes
 
 # Check the Total Leader Present in Redis Cluster using cr and redis-cli
 TOTAL_LEADERS=$(kubectl get redisclusters.redis.redis.opstreelabs.in "${CLUSTER_NAME}" -n "${CLUSTER_NAMESPACE}" -o jsonpath='{.spec.redisLeader.replicas}')
 MASTERS_IP=($(redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" -a "$REDIS_PASSWORD" --no-auth-warning cluster nodes | grep "master" | awk '{print $2}' | cut -d "@" -f1))
-
-check_total_leaders_from_cr() {
-  # Check if TOTAL_LEADERS is 0 or nil
-  if [[ -z "$TOTAL_LEADERS" || "$TOTAL_LEADERS" == 0 ]]; then
-    echo "Error: Total number of leader pods is 0"
-    exit 1
-  fi
-}
 
 check_total_leaders_from_cr() {
   if [[ -z "$TOTAL_LEADERS" || "$TOTAL_LEADERS" == 0 ]]; then
@@ -44,6 +42,13 @@ check_total_leaders_from_cr() {
   fi
 }
 
+check_total_masters_from_redis() {
+  # IF the total master by the redis custom-resource and the redis-cli doesn't match throw an error
+  if [[ "${TOTAL_LEADERS}" -ne "${#MASTERS_IP[@]}" ]]; then
+    echo "Error: Total number of leaders (${TOTAL_LEADERS}) is not equal to total number of masters (${#MASTERS_IP[@]})!"
+    exit 1
+  fi
+}
 
 initialize_repository() {
     # To set the password of the repo you must pass it the env Variable  RESTIC_PASSWORD

@@ -6,6 +6,13 @@ set -e  # Exit on error
 POD=$(hostname)
 NAMESPACE=$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)
 DATA_DIR=${DATA_DIR:-"/data"}
+#RESTORE="false"
+
+# check if restore is true otherwise exit 0
+if [[ "$RESTORE" != "true" ]]; then
+    echo "Restore is not enabled, exiting with status code 0."
+    exit 0
+fi
 
 # Check if the pod name ends with 'follower-[index]'
 if [[ $POD =~ -follower-[0-9]+$ ]]; then
@@ -44,8 +51,12 @@ fi
 echo "Restoring Redis backup for pod ${POD} from snapshot ID ${SNAPSHOT_ID}"
 restic -r "$RESTIC_REPOSITORY" restore "${SNAPSHOT_ID}" --target "/"
 
+ls -lsah /tmp
+
 # Move the restored file to the correct location
 mv "/tmp/${POD}.rdb" "${DATA_DIR}/dump.rdb"
+
+ls -lsah /data
 
 # Change the ownership of the restored file
 # chown redis:redis "${DATA_DIR}/dump.rdb"
